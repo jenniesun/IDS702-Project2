@@ -1,0 +1,368 @@
+---
+title: "Assignment2"
+author: "Jennie Sun"
+date: "9/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.width=9, fig.height=3.2, echo=TRUE)
+library(kableExtra)
+library(knitr)
+library(tinytex)
+library(tidyr)
+library(broom)
+library(dplyr)
+library(gridExtra)
+library(GGally)
+library(xtable)
+library(Rmisc)
+library(RColorBrewer)
+library(dplyr)
+library(rms)
+```
+
+## Question 1 OLD FAITHFUL
+
+## 1.1 
+## Fit a regression model for predicting the interval between eruptions from the duration of the previous one, to the data, and interpret your results.
+
+```{r, echo=FALSE}
+oldfaithful <- read.csv("/Users/Jennie/Downloads/IDS-702-data-modeling/assignments/assignment2/OldFaithful.csv", header=T)
+oldfaithful$Duration<-as.numeric(oldfaithful$Duration)
+oldfaithful$durc<-c(scale(oldfaithful$Duration, scale=F))
+oldfaithful$Date <- factor(oldfaithful$Date)
+Model1 <- lm(Interval ~ durc, data=oldfaithful) 
+summary1 = tidy(Model1)
+kable(summary1, format='markdown',booktabs=T, caption='Summary Output', digits = 40)
+```
+
+Multiple R-squared:  0.7369,	Adjusted R-squared:  0.7344  
+Regression formula: 
+$\hat{Interval} = 10.7410\hat{Duration}+71$
+
+The predictor - duration(centered) in minutes of the previous eruption is significant at 0.001 level. The predicted average interval between eruptions is around 71.00 minutes, and is expected to increase by 10.7410 minutes on average for each additional minute increment in duration. According to the adjusted R-squared, about 73.44% of the variation is explained by the model.
+
+EDA: 
+
+```{r, echo=FALSE}
+ggplot(oldfaithful, aes(x=durc, y=Interval)) + 
+  geom_point()  +
+  labs(title="Interval by Duration",y = "Interval", x = "Duration")+ 
+  theme_minimal() + theme(legend.position="up")
+```
+
+
+
+
+
+
+
+Checking Assumptions (reasoning details in 1.3):
+
+```{r, echo=FALSE}
+ggplot(oldfaithful,aes(x=durc, y=Model1$residual)) +
+   geom_point(alpha = .7) +  geom_hline(yintercept=0,col="red3") + theme_classic() +
+   labs(title="Residuals vs Duration",x="Duration",y="Residuals")
+plot(Model1,which=1:5,col=c("blue4"))
+```
+
+## 1.2
+## Include the 95% confidence interval for the slope, and explain what the interval reveals about the relationship between duration and waiting time.
+
+```{r, echo=FALSE}
+kable(confint(Model1, level = 0.95))
+```
+
+The 95% confidence interval for the slope is (69.719037, 72.28096). This can be interpreted as that at average waiting time, we expect to see the duration to be around 71.00 minutes with a 95% confidence interval in (69.719037 mins - 72.28096 mins).
+
+
+## 1.3
+## Describe in a few sentences whether or not you think the regression assumptions are plausible based on residual plots (do not include any plots).
+
+According to the Residuals against Duration plot, although most of the points are distributed in two clusters (left and right), which may due to the fact that not enough data was collected, in general a random distribution pattern is seen there, so the linearity assumption holds.
+
+According to the Residuals against Fitted value plot, the points are scattered at both ends, so a random distribution pattern can be assumed here; thus the independence assumption does hold. 
+Looking the red line, it seems that potentially there is a quadratic relationship between fitted values and residuals, but overall it tends to stay flat. 
+The number of points above and below the 0 Residuals line are relatively equal, so the equal variance assumption holds. 
+
+According to the Normal Q-Q plot, most points on the graph seem to fall on a 45 degree angle line, with some deviations at both ends, which could be caused by outliers in the dataset that need further investigations. Therefore, the normality assumption holds as well. 
+
+From the Cook's Distance plot and Leverage against Standardized residuals plot, all the points have very low cook's distance and are in the low leverage scale range, so we shouldn't worry too much about about high influential points here. 
+
+## 1.4
+## Fit another regression model for predicting interval from duration and day. Treat day as acategorical/factor variable. Is there a significant difference in mean intervals for any of the days (compared to the first day)? Interpret the effects of controlling for the days(do so only for the days with significant effects, if any).
+
+```{r, echo=FALSE}
+Model2 <- lm(Interval ~ durc + Date, data=oldfaithful) 
+summary2=tidy(Model2)
+kable(summary2, format='markdown',booktabs=T, caption='Summary Output', digits = 10)
+```
+
+Multiple R-squared:  0.7408,	Adjusted R-squared:  0.7196 
+According to the output from the model summary, none of the days from day2 to day8 has a p-value that is smaller than 0.05, which indicates that there is not a significant difference in mean eruption intervals for any of the days compared to the first day. Therefore, by adding the days to the model will not help us make better predictions of the y (Duration). We did not perform a transformation here since with the transformation, although the red line on the fitted values vs residuals plot gets flatter, none of the days from day2 to day8 is significant, meaning that performing a transformation (specifically a quadratic one) here would not help us predict our response better. 
+
+## 1.5
+## Perform an F-test to compare this model to the previous model excluding day. In context of the question, what can you conclude from the results of the F-test?
+
+```{r, echo=FALSE}
+kable(anova(Model1, Model2), format='markdown',booktabs=T, caption='Analysis of Variance Table')
+```
+
+Performing an F-test gives us a p-value that is greater than 0.05, which is not significant. Therefore, we fail to reject the null hypothesis that the two models are both good at predicting the y, Duration. Including the date doesn't seem to have much effect or benefit to predicting eruption intervals, so the second model doesn't seem to help explaining the y better. 
+
+
+## 1.6
+## Using k-fold cross validation (with k=10), compare the average RMSE for this model and the average RMSE for the previous model excluding day. Which model appears to have higher predictive accuracy based on the average RMSE values?
+
+```{r, echo=FALSE}
+defaultW <- getOption("warn") 
+options(warn = -1) 
+
+set.seed(123) 
+Data <- oldfaithful[sample(nrow(oldfaithful)),]
+K <- 10
+RSME <- matrix(0,nrow=K,ncol=1)
+kth_fold <- cut(seq(1,nrow(Data)),breaks=K,labels=FALSE)
+for(k in 1:K){
+  test_index <- which(kth_fold==k)
+  train <- Data[-test_index,]
+  test <- Data[test_index,]
+  train_model <- Model1
+  test_predict <- predict(train_model, test)
+  test_residual <- test$Interval - test_predict
+  testMSE <- mean((test_residual)^2)
+  RSME[k,] <- sqrt(testMSE)
+}
+kable(mean(RSME), caption='RSME of Previous Model') 
+
+options(warn = defaultW)
+```
+```{r, echo=FALSE}
+defaultW <- getOption("warn") 
+options(warn = -1) 
+
+set.seed(123) 
+Data2 <- oldfaithful[sample(nrow(oldfaithful)),]
+K <- 10
+RSME <- matrix(0,nrow=K,ncol=1)
+kth_fold <- cut(seq(1,nrow(Data2)),breaks=K,labels=FALSE)
+for(k in 1:K){
+  test_index <- which(kth_fold==k)
+  train <- Data2[-test_index,]
+  test <- Data2[test_index,]
+  train_model <- Model2
+  test_predict <- predict(train_model, test)
+  test_residual <- test$Interval - test_predict
+  testMSE <- mean((test_residual)^2)
+  RSME[k,] <- sqrt(testMSE)
+}
+kable(mean(RSME), caption='RSME of New Model') 
+
+options(warn = defaultW)
+```
+
+The first model (the one without Date as a predictor) has an average RMSE of 6.595133 (Table 4 above), and the second model (the one with Date as a predictor) has an average RMSE of 6.537226 (Table 5 above). The second model appears to have a slightly higher predictive accuracy as it has a slightly lower RMSE value. However, since the difference is very small (only by about 0.06), adding the variable Date to the model probably will not help much with fitting the model.
+
+\newpage
+## Question 2 MATERNAL SMOKING AND BIRTH WEIGHTS
+
+## Summary
+This report aims to find out if mothers who smoke during pregnancy have increased low birth weights. In R Studio, we explored the relationship and interaction effects between different variables using Exploratory Data Analysis(EDA), interaction analysis, performed model assessment with assumptions validation, and went through the model selection process using stepwise regression with both AIC and BIC. The result shows that it is statistically significant that mothers who smoke tend to give birth to babies with lower weights than mothers who do not smoke. Mother's race, height, and pre-pregnancy weight are three other significant variables that are potentially associated with lower birth weight. 
+
+## Introduction
+In this report, we analyzed the data, in particular 1236 male single births where the baby lived at least 28 days, to see if there is an association between smoking and birth weight. To simplify analyses, we’ll compare babies whose mothers smoke to babies whose mothers have never smoked. In the analyses, we are interested to find out: if mothers who smoke tend to give babies with lower weights than mothers who do not smoke, a likely range for the difference in birth weights for smokers and non-smokers, if there is any evidence that the association between smoking and birth weight differs by mother’s race, and if there are any other interesting associations with birth weight. 
+
+```{r, echo=FALSE}
+data <- read.csv("/Users/Jennie/Downloads/IDS-702-data-modeling/assignments/assignment2/smoking.csv", header = T)
+```
+
+## EDA
+In our analysis, we explored the relationship between `bwt.oz` and each predictor and some interesting findings are listed below with plots: 
+Relationship between birth weight and smoke: 
+median birth weight of nonsmoker mothers is higher than that of smoker mothers:
+
+```{r, echo=FALSE}
+ggplot(data, aes(x=as.factor(smoke), y=bwt.oz, fill=as.factor(smoke))) + 
+  geom_boxplot() + #coord_flip()  
+  scale_fill_brewer(palette="Blues") +
+  labs(title="Birthweight by Smoke",y = "Birthweight", x = "Smoke")+ 
+  theme_minimal() + theme(legend.position="up")
+```
+
+
+
+Relationship between birth weight and parity: median birth weight varies across different parity level 
+```{r, echo=FALSE}
+nb.cols <- 12
+mycolors <- colorRampPalette(brewer.pal(8, "Set3"))(nb.cols)
+ggplot(data, aes(x=as.factor(parity), y=bwt.oz, fill=as.factor(parity))) + 
+  geom_boxplot() + #coord_flip()  
+  scale_fill_manual(values = mycolors) +
+  labs(title="Birthweight by Parity", y = "Birthweight", x = "Parity") +
+  theme_minimal() + theme(legend.position="up")
+```
+
+
+Relationship between birth weight and mrace: median birth weight varies across different mother's race:
+
+```{r, echo=FALSE}
+data$mrace[data$mrace <6] <- 0
+ggplot(data, aes(x=as.factor(mrace), y=bwt.oz, fill=as.factor(mrace))) + 
+  geom_violin(trim=FALSE) + 
+  geom_boxplot(width=0.2, fill="white") + 
+  labs(title="Birthweight by Mother's Race", x = "Mother's Race", y="Birthweight") + 
+  theme_minimal() + theme(legend.position="up")
+```
+
+Relationship between birth weight and mage: the points on the EDA plot between birth weight and mother's age are distributed in a random pattern; therefore, we did not observe a clear relationship between birth weight and mother's age. 
+
+Relationship between birth weight and med: median birth weight varies across different education level, but nothing special was observed
+
+Relationship between birth weight and mht: the points on the EDA plot between birth weight and mother's height are distributed in random pattern, with a slight upward trend towards upper right, so mother's height may have some effect on birth weight. Therefore, we will very likely include this variable in the model. 
+
+```{r, echo=FALSE}
+ggplot(data,aes(x=mht, y=bwt.oz)) +
+  geom_point(aes(colour = mht)) + theme_minimal() +
+  labs(title="Birthweight vs Mother's Height(inches) ",x="Mother's Height(inches)",y="Birthweight")
+```
+
+Relationship between birth weight and mpregwt: the points on the EDA plot between birth weight and mother's pre-pregnancy weight are distributed in random pattern, also with a slight upward trend towards upper right of the plot, so mother's pre-pregnancy weight may have some effect on birth weight as well. Therefore, we will very likely include this variable in the model. 
+
+Relationship between birth weight and inc: median birth weight varies across different income levels, but nothing special was observed.
+
+Interactions：
+Next, we made some plots to explore interactions between the predictor variables:
+First, `bwt.oz` and `smoke` by `parity`: 
+From the interaction box plot between birth weight vs smoke by parity, the trend of median birth weight from nonsmoker to smoker mothers changes across parity, and the distribution of data across different parity is in genral consistent with the last several levels, so this interaction will be considered in the model. 
+Next, `bwt.oz` and `smoke` by `mrace` (plot below): 
+
+```{r, echo=FALSE}
+ggplot(data,aes(group=smoke, x=smoke, y=bwt.oz, fill=smoke)) +
+  geom_boxplot(color="black", fill="green", alpha=0.3) + #coord_flip() +
+  labs(title="Birthweight vs Smoke by Mother's Race", x="Smoke",y= "Birthweight") +
+  theme_minimal() +
+  facet_wrap( ~ mrace,ncol=3)
+```
+
+From the interaction boxplot between birth weight vs smoke by mother's race, it looks like the trend of median birth weight from nonsmoker to smoker mothers stays consistent across different races, but the distribution is not quite as consistent as we go by race groups. Since we are interested to see if there is any evidence that the association between smoking and birth weight differs by mother’s race, we will include this interaction effect in the model.
+Next, `bwt.oz` and `smoke` by `mage`: since the trend of points distribution across mother's age for both smoker and non smoker mothers look the same, we decided to not include this interaction effect in the model. 
+Next, `bwt.oz` and `smoke` by `med`: since the trend of median birth weight and distribution of data from nonsmoker to smoker mothers stays consistent across different education levels, we decided to not include this interaction effect in the model.
+Next, `bwt.oz` and `smoke` by `mht`: since the trend of points distribution across mother's height for both smoker and non smoker mothers look similar, we decided to not include this interaction effect in the model. 
+Next, `bwt.oz` and `smoke` by `mpregwt`: since the trend of points distribution across mother's pre-pregnancy weight for both smoker and non smoker mothers look similar, we decided to not include this interaction effect in the model.
+Last, `bwt.oz` and `smoke` by `inc`: the trend of median birth weight and distribution of data from nonsmoker to smoker mothers stays consistent across different income levels. Therefore, we will not include this interaction effect in our model.
+In general, from exploring the interactions between smoke and other variables, it doesn't seem like any of the interaction term will have a strong effect in predicting baby birth weight. We will still include those that show a change in trend, but we do not expect that adding those terms will eventually help us fit a much better model. We only included the interactions between smoke and other variables here because this is the area where our analysis is most interested in.
+
+## Model Assessment 
+From EDA, our candidate model has:`parity`, `mrace`, `mht`, `mpregwt`, `smoke`, smoke:parity,and smoke:mrace.
+First, fit our EDA suggested model without the interaction (See Table 7 in Appendix)
+Regression formula: 
+$\hat{Birthweight} = 1.80204\hat{pari1}+4.18477\hat{pari2}+5.63491\hat{pari3}+4.61482\hat{pari4}+2.69204\hat{pari5}+8.75790\hat{pari6}+3.41048\hat{pari7}+16.63051\hat{pari8}-3.11114\hat{pari9}+7.99373\hat{pari10}-27.81853\hat{pari11}+3.84011\hat{race6}-8.68070\hat{race7}-7.97365\hat{race8}-1.91987\hat{race9}+0.98204\hat{mht}+0.09906 \hat{mpregwt}-9.51225\hat{smoke}+46.27123$
+
+Multiple R-squared:  0.1704,	Adjusted R-squared:  0.1528. According to the summary output on bwt.oz with only main effects, `parity`(certain groups), `mrace`, `mht`, `mpregwt`, `smoke` are significant at p<0.05 level, which confirms our EDA. 
+
+Since most of the points are distributed in a random pattern on the residuals vs bwt.oz plots for parity, mrace, mht, and mpregwt, the linearity assumption holds. 
+On the residuals vs. fitted plot, the points have an almost perfect random distribution and the 0 residuals red line is nearly flat, suggesting that the model does not violate the independence and equal variance assumptions either. 
+The Normal Q-Q plot shows that most of the points on the graph seem to fall on the 45 degree angle line, with some deviations at both ends, which could be caused by outliers in the dataset that need further investigations. Therefore, the normality assumption holds as well.
+On the residuals vs leverage plot, no high influential points or points with high leverage scores are found; most of the points are between -2 to 2 standardized residuals range, with a very small number of points beyond the that range. No points are beyond the cook's distance of 1 mark.
+Therefore, since all assumptions hold, we did not find the need to transform our model.
+
+Next, fit our EDA suggested model with the interactions (See Table 8 in Appendix).
+Regression model: 
+$\hat{Birthweight} = 1.76016\hat{pari1}+4.37878\hat{pari2}+6.70724\hat{pari3}+5.70343\hat{pari4}+3.98554\hat{pari5}+13.12049\hat{pari6}-2.09887\hat{pari7}+6.77848\hat{pari8}+7.36549\hat{pari9}+2.26339\hat{pari10}-27.11197\hat{pari11}+0.80238\hat{race6}-9.07343\hat{race7}-5.57897\hat{race8}+0.28860\hat{race9}+0.94986\hat{mht}+0.10550 \hat{mpregwt}-8.77780\hat{smoke}+0.17353\hat{pari1:smoke}-0.57324\hat{pari2:smoke}-2.73114\hat{pari3:smoke}-2.26296\hat{pari4:smoke}-2.16312\hat{pari5:smoke}-10.77682\hat{pari6:smoke}+16.83340\hat{pari7:smoke}+29.71898\hat{pari8:smoke}-16.87629\hat{pari9:smoke}+13.46420\hat{race6:smoke}+0.98409\hat{race7:smoke}-8.25703\hat{race8:smoke}-11.44701\hat{race9:smoke}+47.17967$
+
+Multiple R-squared:  0.1843,	Adjusted R-squared:  0.1541. The assumptions still hold after adding the interaction terms in the model. Both multiple R-squared and Adjusted R-squared are better than the model without interaction terms, although only by a very small amount. However, none of the race groups vs smoke or parity groups vs smoke interaction terms are significant at p<0.05 level, so we will not include the interaction terms in our final model if the F-test confirms with this result.
+
+The result from the Anova test shows the the p value is high (greater than 0.05), which also aligns with the result from p values of the interaction terms from the previous output that having interaction terms here probably will not help much with explaining the response variable. Therefore, we will not include them in the final model.
+
+```{r, echo=FALSE}
+data$pari <- factor(data$parity)
+data$race <- factor(data$mrace)
+Model4 <- lm(bwt.oz ~ pari + race + mht + mpregwt + smoke, data=data)
+Model4_inter <- lm(bwt.oz ~ pari + race + mht + mpregwt + smoke + 
+                     smoke*pari + smoke*race, data=data)
+kable(anova(Model4, Model4_inter), format='markdown',booktabs=T, caption='Analysis of Variance Table')
+```
+Multicollinearity: (Table in Appendix)
+As a rule of thumb, a VIF value exceeding 5 or 10 indicates a problematic amount of collinearity. Since the VIF for all predictors are very close to 1 (the smallest possible value of VIF, which is an absence of multicollinearity), we shouldn't worry about multicollinearity here.
+
+Stepwise Selection:
+```{r, echo=FALSE}
+n <- nrow(data)
+model_stepwise_BIC <- step(Model4,scope=formula(Model4),direction='backward',trace = 0, k = log(n))
+model_stepwise_BIC$call
+```
+
+After doing the stepwise selection (backward) using both AIC and BIC for model with and without interactions, we decided to considered the suggestion from BIC when building our final model, which only contains: mother's race, mother's height, mother's pre-pregnancy weight, and smoke. This result is also consistent with our p values from previous model summary and F-test.
+
+## Final Model:
+Regression formula: 
+$\hat{Birthweight} = 3.62858\hat{race6}-8.19323\hat{race7}-8.14676\hat{race8}-1.66704\hat{race9}+0.87571\hat{mht}+0.11788\hat{mpregwt}-9.27445\hat{smoke}+53.24651$
+
+Multiple R-squared:  0.1469,	Adjusted R-squared:   0.14 
+
+According to the findings from EDA, interaction analysis, model assessment, F-test, VIF, and stepwise regression with both AIC and BIC, our final model includes mother's race, mother's height, mother's pre-pregnancy weight, and smoke as the predictors. All four of them have a p-value that is less than 0.05, so all the predictors selected are significant. The F-test, stepwise selection, and VIF values also indicated that including the interaction terms does not help explaining the model better, which is why we decided to drop them here and only focus on the variables with the most significant effect on the response variable. Also, we did not perform transformation here because all the assumptions already hold without transformations. In the final model, the expected average birth weight is around 53.24651 oz, holding other variables at 0. According to the output from the final model, smoke has a coefficient of -9.27445, meaning that the average baby birth weight from mothers who smoke is 9.27445 oz lower than that from mothers who don't smoke. 
+
+According to the 95% interval from the final model (Table in Appendix), a likely range for the difference in birth weights for smokers and non-smokers between 11.53927673oz and 7.0096196oz.
+
+According to the output from the final model (Table in Appendix), the race groups 7 and 8 are significant at 0.05 level, so statistically there might be some associations between smoking and birth weight differs by mothers in race group 7 and 8. According to the coefficients of race7 and race8, it suggests that going from race0 to race7 and race8, the average baby birth weight is expected to decrease by 8.19323oz (race7) and 8.14676oz (race8), holding other variables constant. However, in order to further investigate the relationships between mother's race and baby birth weight, other factors need to be considered, such the presence of racism and its potential to increase or exacerbate stress, and racial/ethnic differences in biological responses to stressors for possible explanations to racial disparities in birth outcomes. 
+
+Based on the output of the final model, mht and mpregwt are two other predictor variables that are significant at 0.05 level. The effect of these two predictors can be intrepreted as - the average birth weight is expected to increase by 0.94986oz with an additional increment in mother's height, and is expected to increase by 0.10550oz with an additional increment in mother's pre-pregnancy weight, holding other variables constant. After doing internet research, we found that studies have indicated that shorter mothers may have shorter pregnancies and smaller babies. There's also research that shows mother's pre-pregnancy weight may have some effect on baby birth weight. However, the result may be partially due to selection bias, so further investigations are needed if interested in these effects.
+
+## Conclusion: 
+The findings from this analysis provides evidence showing mothers who smoke tend to give birth to babies with lower weights than mothers who do not smoke. It also shows that mother's race, height, and pre-pregnancy weight can potentially be other factors affecting baby birth weight. 
+In terms of potential limitations of the study, since the dataset analyzed is only a small subset of the entire collected dataset, with only male single births, so the dataset itself could potentially lead to bias in the result. In addition, low birth weights could be caused by many other factors that are not covered in this analysis, so further investigations on more potential predictors are needed. 
+\pagebreak
+
+\newpage
+## Appendex
+
+EDA suggested model without the interaction:
+
+```{r, echo=FALSE}
+data$pari <- factor(data$parity)
+data$race <- factor(data$mrace)
+Model4 <- lm(bwt.oz ~ pari + race + mht + mpregwt + smoke, data=data)
+summary4=tidy(Model4)
+kable(summary4, format='markdown',booktabs=T, caption='Summary Output', digits = 20)
+```
+
+Multiple R-squared:  0.1843,	Adjusted R-squared:  0.1541
+
+
+EDA suggested model with the interaction:
+
+```{r, echo=FALSE}
+Model4_inter <- lm(bwt.oz ~ pari + race + mht + mpregwt + smoke + 
+                     smoke*pari + smoke*race, data=data)
+summary4_inter=tidy(Model4_inter)
+kable(summary4_inter, format='markdown',booktabs=T, caption='Summary Output', digits = 20)
+```
+
+Multiple R-squared:  0.1843,	Adjusted R-squared:  0.1541.
+
+Multicollinearity:
+
+```{r, echo=FALSE}
+kable(vif(Model4))
+```
+
+
+Final Model:
+
+```{r, echo=FALSE}
+Model_Final <- lm(formula = bwt.oz ~ race + mht + mpregwt + smoke, data = data)
+summary_final=tidy(Model_Final)
+kable(summary_final, format='markdown',booktabs=T, caption='Summary Output', digits = 20)
+```
+
+Multiple R-squared:  0.1469,	Adjusted R-squared:   0.14 
+
+95% CI for the Final Model:
+
+```{r, echo=FALSE}
+Model_Final <- lm(formula = bwt.oz ~ race + mht + mpregwt + smoke, data = data)
+kable(confint(Model_Final))
+```
+
+\pagebreak 
