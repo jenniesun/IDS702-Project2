@@ -31,3 +31,19 @@ Our questions of interest include the following.
 3. Is there any evidence that the association between smoking and birth weight differs by mother’s race? If so, characterize those differences.
 4. Are there other interesting associations with birth weight that are worth mentioning?
 5. Analyze the data and investigate these questions using a linear model. 
+
+#### Code Book
+
+Variable:	Description
+Id:	id number
+birth:	birth date where 1096 = January1, 1961
+gestation:	length of gestation in days
+bwt (Response/outcome variable):	birth weight in ounces (999 = unknown)
+parity:	total number of previous pregnancies, including fetal deaths and still births. (99=unknown)
+mrace:	mother’s race or ethnicity (0-5=white, 6=mexican, 7=black, 8=asian, 9=mix, 99=unknown)
+mage:	mother’s age in years at termination of pregnancy
+med:	mother’s education (0 = less than 8th grade, 1 = 8th to 12th grade. did not graduate high school, 2 = high school graduate, no other schooling, 3 = high school graduate + trade school, 4 = high school graduate + some college, 5 = college graduate, 6,7 = trade school but unclear if graduated from high school, 9 = unknown
+mht:	mother’s height in inches
+mpregwt:	mother’s pre-pregnancy weight in pounds
+income:	family yearly income in 2500 increments. 0 = under 2500, 1 = 2500-4999, …, 9 = 15000+. 98=unknown, 99=not asked
+smoke:	does mother smoke? (0 = never, 1 = smokes now, 2 = until preg, 3 = once did, not now)
