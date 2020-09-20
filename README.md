@@ -2,11 +2,13 @@
 #### Data Analysis Project 2
 
 This is a data analysis R project I did for the Modeling and Representation of Data course at Duke University. 
-The purpose of the analysis is to provide insights to the 2 questions asked below (texts from Professor Akande's course website). 
+The purpose of the analysis is to provide insights to the 2 questions asked below (texts adapted from Professor Akande's course website). 
 
 Question 1 was taken and adapted from Chapter 7 of Ramsey, F.L. and Schafer, D.W. (2013), “The Statistical Sleuth: A Course in Methods of Data Analysis (3rd ed).”
 
-#### OLD FAITHFUL. Old Faithful Geyser in Yellowstone National Park, Wyoming, derives its name and its considerable fame from the regularity (and beauty) of its eruptions. As they do with most geysers in the park, rangers post the predicted times of eruptions on signs nearby, and people gather beforehand to witness the show. R.A. Hutchinson, a park geologist, collected measurements of the eruption durations (in minutes) and the subsequent intervals before the next eruption (also in minutes) over an 8-day period.
+#### OLD FAITHFUL. 
+Old Faithful Geyser in Yellowstone National Park, Wyoming, derives its name and its considerable fame from the regularity (and beauty) of its eruptions. As they do with most geysers in the park, rangers post the predicted times of eruptions on signs nearby, and people gather beforehand to witness the show. R.A. Hutchinson, a park geologist, collected measurements of the eruption durations (in minutes) and the subsequent intervals before the next eruption (also in minutes) over an 8-day period.
+
 1. Fit a regression model for predicting the interval between eruptions from the duration of the previous one, to the data, and interpret your results.
 2. Include the 95% confidence interval for the slope, and explain what the interval reveals about the relationship between duration and waiting time.
 3. Describe in a few sentences whether or not you think the regression assumptions are plausible based on residual plots (do not include any plots).
